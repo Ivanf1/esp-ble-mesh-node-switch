@@ -14,6 +14,7 @@
 #include "ble_mesh_example_nvs.h"
 
 #include "board.h"
+#include "button.h"
 
 #define TAG "EXAMPLE"
 
@@ -76,6 +77,10 @@ static esp_ble_mesh_prov_t provision = {
     .output_size = 0,
     .output_actions = 0,
 };
+
+// 0 - off
+// 1 - on
+uint16_t current_state = 0;
 
 static void mesh_example_info_store(void) {
   //  ble_mesh_nvs_store(NVS_HANDLE, NVS_KEY, &store, sizeof(store));
@@ -144,44 +149,24 @@ static void example_ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
   }
 }
 
-static void send_msg_on_button_click() {}
-
 uint8_t tid = 0;
-uint16_t onoffff = 0;
 
 void example_ble_mesh_send_gen_onoff_set(void) {
+  uint16_t state_to_set = current_state ? 0 : 1;
+  // message: first 8 bits -> tid
+  //          last  8 bits -> status
+  tid++;
+  uint16_t value_to_send = ((uint16_t)tid << 8) | state_to_set;
+
   ESP_LOGI(TAG, "Sending message");
-  esp_ble_mesh_generic_client_set_state_t set = {0};
-  esp_ble_mesh_client_common_param_t common = {0};
-  esp_err_t err = ESP_OK;
-
-  common.opcode = ESP_BLE_MESH_MODEL_OP_GEN_ONOFF_SET_UNACK;
-  common.model = onoff_client.model;
-  // common.ctx.net_idx = store.net_idx;
-  // common.ctx.net_idx = 0x0000;
-  // common.ctx.app_idx = store.app_idx;
-  // common.ctx.addr = 0xFFFF; /* to all nodes */
-  common.ctx.addr = 0xC000;
-  common.ctx.send_ttl = 3;
-  common.ctx.send_rel = false;
-  common.msg_timeout = 0; /* 0 indicates that timeout value from menuconfig will be used */
-  common.msg_role = ROLE_NODE;
-
-  set.onoff_set.op_en = false;
-  set.onoff_set.onoff = onoffff;
-  // set.onoff_set.tid = tid++;
-
-  // err = esp_ble_mesh_generic_client_set_state(&common, &set);
-  esp_ble_mesh_model_publish(onoff_client.model, ESP_BLE_MESH_MODEL_OP_GEN_ONOFF_SET_UNACK, sizeof(onoffff),
-                             (uint8_t *)&onoffff, ROLE_NODE);
+  esp_err_t err = esp_ble_mesh_model_publish(onoff_client.model, ESP_BLE_MESH_MODEL_OP_GEN_ONOFF_SET_UNACK,
+                                             sizeof(value_to_send), (uint8_t *)&value_to_send, ROLE_NODE);
   if (err) {
     ESP_LOGE(TAG, "Send Generic OnOff Set Unack failed");
     return;
   }
 
-  // onoffff = onoffff ? 0 : 1;
-  // store.onoff = !store.onoff;
-  // mesh_example_info_store(); /* Store proper mesh example info */
+  current_state = state_to_set;
 }
 
 static void example_ble_mesh_generic_client_cb(esp_ble_mesh_generic_client_cb_event_t event,
@@ -314,4 +299,6 @@ void app_main(void) {
   if (err) {
     ESP_LOGE(TAG, "Bluetooth mesh init failed (err %d)", err);
   }
+
+  board_button_init();
 }
