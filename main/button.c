@@ -4,17 +4,17 @@
 #include "esp_log.h"
 #include "iot_button.h"
 
-#define TAG "BOARD"
+#define TAG "BUTTON"
 
 #define BUTTON_IO_NUM 33
 #define BUTTON_ACTIVE_LEVEL 0
 
-extern void example_ble_mesh_send_gen_onoff_set(void);
+extern void ble_mesh_send_gen_onoff_set(void);
 
 static void button_tap_cb(void *arg) {
   ESP_LOGI(TAG, "tap cb (%s)", (char *)arg);
 
-  example_ble_mesh_send_gen_onoff_set();
+  ble_mesh_send_gen_onoff_set();
 }
 
 void board_button_init(void) {
