@@ -17,6 +17,8 @@
 
 #define TAG "EXAMPLE_INIT"
 
+const char *kBLEName = "ESP-NODE-SWITCH";
+
 void ble_mesh_get_dev_uuid(uint8_t *dev_uuid) {
   if (dev_uuid == NULL) {
     ESP_LOGE(TAG, "%s, Invalid device uuid", __func__);
@@ -56,6 +58,11 @@ esp_err_t bluetooth_init(void) {
   ret = esp_bluedroid_enable();
   if (ret) {
     ESP_LOGE(TAG, "%s enable bluetooth failed", __func__);
+    return ret;
+  }
+  ret = bt_mesh_set_device_name(kBLEName);
+  if (ret) {
+    ESP_LOGE(TAG, "%s set name failed", __func__);
     return ret;
   }
 

@@ -7,14 +7,17 @@
 #include "esp_ble_mesh_common_api.h"
 #include "esp_ble_mesh_config_model_api.h"
 #include "esp_ble_mesh_generic_model_api.h"
+#include "esp_ble_mesh_lighting_model_api.h"
 #include "esp_ble_mesh_networking_api.h"
 #include "esp_ble_mesh_provisioning_api.h"
+
+#include "esp_gatt_common_api.h"
 
 #include "ble_mesh_init.h"
 #include "ble_mesh_nvs.h"
 #include "button.h"
 
-#define TAG "NODE_LIGHT"
+#define TAG "NODE_SWITCH"
 
 #define CID_ESP 0x02E5
 
@@ -32,8 +35,6 @@ static struct ble_mesh_info_store_t {
 static nvs_handle_t NVS_HANDLE;
 static const char *NVS_KEY = "onoff_client";
 
-static esp_ble_mesh_client_t onoff_client;
-
 static esp_ble_mesh_cfg_srv_t config_server = {
     .relay = ESP_BLE_MESH_RELAY_DISABLED,
     .beacon = ESP_BLE_MESH_BEACON_ENABLED,
@@ -45,11 +46,16 @@ static esp_ble_mesh_cfg_srv_t config_server = {
     .relay_retransmit = ESP_BLE_MESH_TRANSMIT(2, 20),
 };
 
+static esp_ble_mesh_client_t onoff_client;
 ESP_BLE_MESH_MODEL_PUB_DEFINE(onoff_cli_pub, 2 + 3, ROLE_NODE);
+
+static esp_ble_mesh_client_t lightness_client;
+ESP_BLE_MESH_MODEL_PUB_DEFINE(lightness_cli_pub, 2 + 3, ROLE_NODE);
 
 static esp_ble_mesh_model_t root_models[] = {
     ESP_BLE_MESH_MODEL_CFG_SRV(&config_server),
     ESP_BLE_MESH_MODEL_GEN_ONOFF_CLI(&onoff_cli_pub, &onoff_client),
+    ESP_BLE_MESH_MODEL_LIGHT_LIGHTNESS_CLI(&lightness_cli_pub, &lightness_client),
 };
 
 static esp_ble_mesh_elem_t elements[] = {
@@ -203,6 +209,12 @@ static void ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t event,
                param->value.state_change.mod_sub_add.company_id, param->value.state_change.mod_sub_add.model_id);
       ble_mesh_send_gen_onoff_set();
       break;
+    case ESP_BLE_MESH_MODEL_OP_MODEL_PUB_SET:
+      ESP_LOGI(TAG, "ESP_BLE_MESH_MODEL_OP_MODEL_PUB_SET");
+      ESP_LOGI(TAG, "elem_addr 0x%04x, sub_addr 0x%04x, cid 0x%04x, mod_id 0x%04x",
+               param->value.state_change.mod_sub_add.element_addr, param->value.state_change.mod_sub_add.sub_addr,
+               param->value.state_change.mod_sub_add.company_id, param->value.state_change.mod_sub_add.model_id);
+      break;
     case ESP_BLE_MESH_MODEL_OP_MODEL_SUB_DELETE:
       ESP_LOGI(TAG, "ESP_BLE_MESH_MODEL_OP_MODEL_SUB_DELETE");
       ESP_LOGI(TAG, "elem_addr 0x%04x, del_addr 0x%04x, cid 0x%04x, mod_id 0x%04x",
@@ -245,6 +257,8 @@ void app_main(void) {
   ESP_LOGI(TAG, "Initializing...");
 
   err = nvs_flash_init();
+  nvs_flash_erase();
+  err = nvs_flash_init();
   if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
     ESP_ERROR_CHECK(nvs_flash_erase());
     err = nvs_flash_init();
@@ -270,6 +284,8 @@ void app_main(void) {
   if (err) {
     ESP_LOGE(TAG, "Bluetooth mesh init failed (err %d)", err);
   }
+
+  esp_ble_gatt_set_local_mtu(120);
 
   board_button_init();
 }
